@@ -919,7 +919,8 @@ if __name__ == "__main__":
 		password=sys.argv[3]
 		password_salt =generate_salt()
 		password_hash = generate_hash( password, password_salt )
-		DB.addUser( username, password_hash, password_salt )
+		id = DB.addUpdateUser( username, password_hash, password_salt )
+		Write( "Updated '"+username+"' with id="+str(id), "WARNING" )
 		sys.exit(0)
 
 	sys.quit()

@@ -8,6 +8,8 @@ DBUSER = "Netadmin"
 DBPASS = "Clytemnestra37_"
 DBNAME = "netadmin"
 
+db = None
+
 class Database( object ):
 
 	db = None
@@ -117,7 +119,36 @@ def getDeviceByID( id ):
 	print( records )
 	return( json.dumps(records) )
 
-def addUser( username, hash, salt ):
+def addUpdateUser( username, hash, salt ):
+
+	userid=0
+
+	# Get existing record (If there is one)
+	SQL = """SELECT * FROM auth WHERE email=%s"""
+	try:
+		cursor = db.cursor( dictionary=True, buffered=True )
+		cursor.execute( SQL, (email,) )
+		entries = cursor.fetchall()
+		cursor.close()
+		if len(entries) == 1:
+			userid = entries[0]["id"]
+
+		SQL = """
+			UPDATE auth 
+			SET password_hash=%s, password_salt=%s
+			WHERE id=%s;
+		"""
+		cursor = db.cursor( dictionary=True, buffered=True )
+		cursor.execute( SQL, ( hash, salt ) )
+		db.commit()
+		cursor.close()
+		return userid
+	
+	except Exception as e:
+		pass
+
+	# USER DOES NOT EXIST
+
 	SQL = """
 		INSERT INTO auth( email, password_hash, password_salt )
 		VALUES( %s,%s,%s );
@@ -128,6 +159,9 @@ def addUser( username, hash, salt ):
 	cursor = db.cursor( dictionary=True, buffered=True )
 	cursor.execute( SQL, (username,hash,salt) )
 	db.commit()
+	userid = cursor.lastrowid
 	cursor.close()
 	#
 	dblock.release()
+
+	return userid

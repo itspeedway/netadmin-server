@@ -3,7 +3,7 @@ echo ADMIN ACCOUNT RESET
 echo
 
 read -p 'Admin account (admin): ' username
-if [ "${admin}" = "" ]; then
+if [ "${username}" = "" ]; then
     username="admin"
 fi
 
