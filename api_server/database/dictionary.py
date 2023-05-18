@@ -56,25 +56,25 @@ def initialise( filename ):
 		print( "Loading datafile" )
 		with open( filename ) as f:
 			Database = json.load(f)
-		print( json.dumps( Database, indent=2))
+		#print( json.dumps( Database, indent=2))
 	except Exception as e:
 		print( "Invalid datafile: '"+filename+"'\n "+str(e) )	
 
 def getUserByEmail( email ):
-	if "auth" not in Database: return {}
-	if "records" not in Database["auth"]: return {}
-	if "index.email" not in Database["auth"]: return {}
-	if email not in Database["auth"]["index.email"]: return {}
+	if "auth" not in Database: return None
+	if "records" not in Database["auth"]: return None
+	if "index.email" not in Database["auth"]: return None
+	if email not in Database["auth"]["index.email"]: return None
 
 	userid = Database["auth"]["index.email"][email]
-	return Database["auth"]["records"][userid]
+	return Database["auth"]["records"][str(userid)]
 
 def getUserById( userid ):
 	if "auth" not in Database: return {}
 	if "records" not in Database["auth"]: return {}
 	if userid not in Database["auth"]["records"]: return {}
 
-	return Database["auth"]["records"][userid]
+	return Database["auth"]["records"][str(userid)]
 
 def getDeviceById( id ):
 	if "devices" not in Database: return {}
@@ -85,10 +85,11 @@ def save():
 	with open( db_filename, 'w', encoding='utf-8') as f:
 		json.dump( Database, f, ensure_ascii=False, indent=4 )
 
+# Add or Update a user account password
 def addUpdateUser( username, hash, salt ):
 	global Database
 
-	print( json.dumps( Database, indent=2))
+	#print( json.dumps( Database, indent=2))
 
 	if not "auth" in Database:
 		Database["auth"]={

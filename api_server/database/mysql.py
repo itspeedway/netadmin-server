@@ -96,8 +96,22 @@ def initialise( config ):
 
 
 def getUserByEmail( email ):
-	return db_read( """SELECT * FROM auth WHERE email=%s""", (email,))
-
+	#return db_read( """SELECT * FROM auth WHERE email=%s""", (email,))
+	SQL = "SELECT * FROM auth WHERE email=%s;"
+	try:
+		cursor = db.cursor( dictionary=True, buffered=True )
+		cursor.execute( SQL, (email,) )
+		entries = cursor.fetchall()
+		cursor.close()
+		return entries[0]
+		#content = []
+		#for entry in entries:
+		#	content.append(entry)
+		#return content
+	except Exception as e:
+		Write(str(e))
+		return None
+	
 def getDeviceByID( id ):
 	SQL = """
 		SELECT id,hostname,ipaddress,class,location,icon,status
@@ -119,6 +133,7 @@ def getDeviceByID( id ):
 	print( records )
 	return( json.dumps(records) )
 
+# Add or Update a user account password
 def addUpdateUser( username, hash, salt ):
 
 	userid=0

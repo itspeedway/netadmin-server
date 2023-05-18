@@ -3,7 +3,9 @@
 
 import configparser, json, os, sys, threading, logging
 #import mysql.connector
-#import logging
+
+import jwt
+
 from pathlib import Path
 from logging.handlers import TimedRotatingFileHandler
 
@@ -14,7 +16,6 @@ from threading import Timer
 
 from  werkzeug.security import generate_password_hash, check_password_hash
 from hashlib import pbkdf2_hmac
-import jwt
 
 """
 FURTHER READING:
@@ -246,37 +247,35 @@ def generate_hash( plain_password, password_salt ):
     return password_hash.hex()
 
 def generate_jwt_token(content):
-    
+    #Write( "CONTENT: "+str( content ))     
     encoded_content = jwt.encode(content, JWT_Secret_Token, algorithm="HS256")
-    token = str(encoded_content).split("'")[1]
-    return token
+    #Write( "ENCODED: "+str( encoded_content )) 
+    #sys.exit(0)
+    #token = str(encoded_content).split("'")[1]
+    return encoded_content
 
-def validate_user(email, password):
+# User validation returns "None" or a valid JWT Token
+def validate_user( email, password ):
 	email = email.strip()
 	password = password.strip()
-	if email=="" or password=="": return (False,"Username and password cannot be blank",None)
+	if email=="" or password=="": 
+		return None
 	
 	#current_user = db_read( """SELECT * FROM auth WHERE email=%s""", (email,))
 	current_user = DB.getUserByEmail( email )
-
-	Write( str( current_user ) )
+	if not current_user: return None
+	Write( "USER: "+str( current_user ) )
+	saved_password_hash = current_user["password_hash"]
+	saved_password_salt = current_user["password_salt"]
+	if saved_password_hash==None or saved_password_salt==None: 
+		return None
 	
-	if len(current_user) == 1:
-		saved_password_hash = current_user[0]["password_hash"]
-		saved_password_salt = current_user[0]["password_salt"]
-		if saved_password_hash==None or saved_password_salt==None: 
-			return (False,"Invalid login",None)
-		
-		password_hash = generate_hash( password, saved_password_salt )
+	password_hash = generate_hash( password, saved_password_salt )
+	if password_hash != saved_password_hash: return None
 
-		if password_hash == saved_password_hash:
-			user_id = current_user[0]["id"]
-			jwt_token = generate_jwt_token({"id": user_id})
-			return (True,"",jwt_token)
-		else:
-			return (False,"Invalid login",None)
-	else:
-		return (False,"Invalid login",None)
+	userid = current_user["id"]
+	jwt_token = generate_jwt_token({"id": userid})
+	return jwt_token
 
 def validateJWT( request ):
 	token = None
@@ -295,23 +294,23 @@ def validateJWT( request ):
 	except:
 		return (None,"Token is invalid")	
 
-class User:
-
-	def query(*,email):
-		SQL = "SELECT * FROM auth WHERE email=%s;"
-		try:
-			cursor = db.cursor( dictionary=True, buffered=True )
-			cursor.execute( SQL, (email,) )
-			entries = cursor.fetchall()
-			cursor.close()
-			return entries[0]
-			content = []
-			for entry in entries:
-				content.append(entry)
-			return content
-		except Exception as e:
-			Write(str(e))
-			return None
+#class User:
+#
+#	def query(*,email):
+#		SQL = "SELECT * FROM auth WHERE email=%s;"
+#		try:
+#			cursor = db.cursor( dictionary=True, buffered=True )
+#			cursor.execute( SQL, (email,) )
+#			entries = cursor.fetchall()
+#			cursor.close()
+#			return entries[0]
+#			content = []
+#			for entry in entries:
+#				content.append(entry)
+#			return content
+#		except Exception as e:
+#			Write(str(e))
+#			return None
 
 #def makeRPC( id=None, method=None, params=None, error=None, result=None ):
 #	jsonrpc = {
@@ -466,43 +465,55 @@ def POST_auth():
 			'WWW-Authenticate' : 'Basic realm ="Invalid login"'
 			})
 		
-	user = User.query( email=username )
-	Write( "USER: "+str(user) )
-	if not user:
-		return make_response( "Unable to verify", 401, {
-			'WWW-Authenticate' : 'Basic realm ="Invalid login"'
+	#user = User.query( email=username )
+	#user = DB.getUserByEmail( username )
+	#if not user:
+	#	return make_response( "Unable to verify", 401, {
+	#		'WWW-Authenticate' : 'Basic realm ="Invalid login"'
+	#		})
+	#Write( "USER: "+str(user) )
+	
+	token = validate_user( username, userpass )
+
+	if not token:
+		message = jsonify( {"error":"Login failed"} )
+		return make_response( message, 401, {
+			'WWW-Authenticate' : 'Basic realm ="Login Failure"'
 			})
-	
+
+ 	# Token is valid
+	return jsonify({"jwt_token": token})
+
 	# Generate a password hash
-	Write( "Checking hash" )
-	saved_password_salt = user["password_salt"]
-	saved_password_hash = user["password_hash"]
-	if saved_password_salt==None or saved_password_hash==None:
-		return make_response( "Unable to verify", 401, {
-			'WWW-Authenticate' : 'Basic realm ="Invalid login"'
-			})		
+	#Write( "Checking hash" )
+	#saved_password_salt = user["password_salt"]
+	#saved_password_hash = user["password_hash"]
+	#if saved_password_salt==None or saved_password_hash==None:
+	#	return make_response( "Unable to verify", 401, {
+	#		'WWW-Authenticate' : 'Basic realm ="Invalid login"'
+	#		})		
 	
-	password_hash = generate_hash( userpass, saved_password_salt )
-	if password_hash == saved_password_hash:
-		
-		#if check_password_hash( user.password, userpass ):
-        # generates the JWT Token
-		token = jwt.encode({
-			'userid': user["id"],
-			'expires' : datetime.utcnow() + timedelta(minutes = 30)
-		}, JWT_Secret_Token)
-
-		return make_response( jsonify({'token' : token.decode('UTF-8')}), 201)
-	
-	Write( "Incorrect password" )
-	# returns 403 if password is wrong
-	return make_response(
-		'Could not verify',
-		403,
-		{'WWW-Authenticate' : 'Basic realm ="Invalid login"'}
-	)
-
-	return render_CORS_preflight( request, "POST" )
+#	password_hash = generate_hash( userpass, saved_password_salt )
+#	i#f password_hash == saved_password_hash:
+#	#	
+#	#	#if check_password_hash( user.password, userpass ):
+#     #   # generates the JWT Token
+#	#	token = jwt.encode({
+#	#		'userid': user["id"],
+#	#		'expires' : datetime.utcnow() + timedelta(minutes = 30)
+#	#	}, JWT_Secret_Token)
+#
+#	#	return make_response( jsonify({'token' : token.decode('UTF-8')}), 201)
+#	#
+#	W#rite( "Incorrect password" )
+#	## returns 403 if password is wrong
+#	r#eturn make_response(
+#	#	'Could not verify',
+#	#	403,
+#	#	{'WWW-Authenticate' : 'Basic realm ="Invalid login"'}
+#	)#
+#
+#	return render_CORS_preflight( request, "POST" )
 
 # Login attempt (old)
 @app.route( "/api/auth/login", methods=["OPTIONS"] )
@@ -922,8 +933,6 @@ if __name__ == "__main__":
 		id = DB.addUpdateUser( username, password_hash, password_salt )
 		Write( "Updated '"+username+"' with id="+str(id), "WARNING" )
 		sys.exit(0)
-
-	sys.quit()
 
 	#	SET UP JWT TOKEN
 

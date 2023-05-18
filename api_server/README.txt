@@ -32,6 +32,7 @@ Install dependencies:
 	python -m pip install --upgrade websocket
 	python -m pip install --upgrade websocket-client
 	!! python -m pip install --upgrade flask-cors
+    python -m pip install --upgrade PyJWT
 	
 
 The first time you run this script you will be asked to save the server fingerprint; please say yes.
@@ -43,7 +44,8 @@ UPGRADE:
 	python -m pip install --upgrade pip
 	pip install --upgrade git+https://github.com/CheckPointSW/cp_mgmt_api_python_sdk
 
-
+ADD OR UPDATE ADMINISTRATOR
+Run the "reset_password" script and provide administrator name and password
 
 DESIGN IDEALS
 All of these web services should run in different threads
