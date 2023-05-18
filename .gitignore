@@ -1,0 +1,18 @@
+
+# Exclude folders
+.vscode/
+*.private/
+__pycache__
+venv/
+log/
+*.old
+
+# Exclude files
+config.ini
+database.json
+
+*.zip
+
+
+
+

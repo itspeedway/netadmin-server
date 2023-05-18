@@ -1,0 +1,5 @@
+#!/bin/bash
+
+curl -H 'Content-Type: application/json' -d '{"username":"Scaremonger","password":"Password123"}' -X POST "http://127.0.0.1:4010/netadmin"
+echo
+
