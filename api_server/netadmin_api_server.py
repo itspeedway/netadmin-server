@@ -41,13 +41,16 @@ MQ=None
 DB=None
 JWT_Secret_Token=None
 
-JSONRPC_Requests = {}
+# This was an experiment and will not be used
+#JSONRPC_Requests = {}
 
 ERROR_PARSE_ERROR      = -32700 	# Invalid JSON was received by the server.
 ERROR_INVALID_REQUEST  = -32600 	# The JSON sent is not a valid Request object.
 ERROR_METHOD_NOT_FOUND = -32601 	# The method does not exist / is not available.
 ERROR_INVALID_PARAMS   = -32602 	# Invalid method parameter(s).
 ERROR_INTERNAL_ERROR   = -32603 	# Internal JSON-RPC error.
+
+########## UTILITY FUNCTIONS ############################
 
 def Write( message, severity="INFO" ):
 
@@ -66,8 +69,29 @@ def Write( message, severity="INFO" ):
 	#	file.write( str(time)+" - " + severity+" - "+str(message)+"\n" )
 	if severity == "INFO":
 		logging.info( message )
+	elif severity=="DEBUG":
+		logging.debug( message )
+	elif severity=="WARNING":
+		logging.warning( message )
+	elif severity=="ERROR":
+		logging.error( message )
+	elif severity=="CRITICAL":
+		logging.critical( message )
 	else:
-		logging.log( severity + " - " + message )
+		logging.critical( "Unknown severity level: "+severity )
+		logging.debug( message )
+
+# Equivalent of Javascript setTimeout( delay, callback )
+class setTimeout( Timer ):
+	def run( self ):
+		while not self.finished.wait( self.interval ):
+			self.function( *self.args, **self.kwargs )
+			
+# Timeout keepalive
+def keepalive():
+	Write( "Keepalive", "DEBUG" )
+
+########## MESSAGE QUEUE ###############
 
 def on_connect( client ):
 	Write( "MQ Connected" )
@@ -86,15 +110,6 @@ def on_error( error ):
 def on_message( message ):
 	Write( "Message received: "+str(message) )
 
-# Equivalent of Javascript setTimeout( delay, callback )
-class setTimeout( Timer ):
-	def run( self ):
-		while not self.finished.wait( self.interval ):
-			self.function( *self.args, **self.kwargs )
-			
-# Timeout keepalive
-def keepalive():
-	Write( "Keepalive", "DEBUG" )
 
 # DECORATOR FOR JWT VERIFICATION
 # https://www.geeksforgeeks.org/using-jwt-for-user-authentication-in-flask/
@@ -149,6 +164,8 @@ def token_required(f):
 #	def __str__(self):
 #		return "User(id='%s')" % self.id
 
+########## CORS ########################
+
 # CORS
 def render_CORS_preflight( request, methods="GET,OPTIONS", message={} ):
 	print( "render_CORS_preflight()" )
@@ -192,7 +209,7 @@ def render_CORS_preflight( request, methods="GET,OPTIONS", message={} ):
 	origin = request.remote_addr
 	#origin = request.origin
 	Write( "ORIGIN.ALLOW: "+str(origin) )
-	print( "ORIGIN: "+request.origin )
+	print( "ORIGIN:       "+str( request.origin ) )
 	#TODO: Check if origin is allowed here
 	response.headers[ "Access-Control-Allow-Origin" ] = "*"
 	#response.headers[ 'Access-Control-Allow-Origin' ] = origin 
@@ -212,7 +229,8 @@ def render_CORS_preflight( request, methods="GET,OPTIONS", message={} ):
 #def get_home():
 #	Write( "Request to incomplete route: '/'", "DEBUG" )
 	
-# ---------- AUTHENTICATION --------------------
+########################################
+########## AUTHENTICATION ##############
 
 def generate_salt():
     salt = os.urandom(16)
@@ -246,7 +264,8 @@ def validate_user(email, password):
 	if len(current_user) == 1:
 		saved_password_hash = current_user[0]["password_hash"]
 		saved_password_salt = current_user[0]["password_salt"]
-		if saved_password_hash==None or saved_password_salt==None: return (False,"Invalid login",None)
+		if saved_password_hash==None or saved_password_salt==None: 
+			return (False,"Invalid login",None)
 		
 		password_hash = generate_hash( password, saved_password_salt )
 
@@ -294,26 +313,29 @@ class User:
 			Write(str(e))
 			return None
 
-def makeRPC( id=None, method=None, params=None, error=None, result=None ):
-	jsonrpc = {
-		"jsonrpc":"2.0",
-	}
-	if id: jsonrpc["id"] = id
-	if method: jsonrpc["method"] = method
-	if params: jsonrpc["params"] = params
-	if result: jsonrpc["result"] = result
-	if error: jsonrpc["error"] = error
-	return jsonrpc
-
+#def makeRPC( id=None, method=None, params=None, error=None, result=None ):
+#	jsonrpc = {
+#		"jsonrpc":"2.0",
+#	}
+#	if id: jsonrpc["id"] = id
+#	if method: jsonrpc["method"] = method
+#	if params: jsonrpc["params"] = params
+#	if result: jsonrpc["result"] = result
+#	if error: jsonrpc["error"] = error
+#	return jsonrpc
+#
 #	START API
 
-def makeRPCError( code, message, data=None ):
-	error = {
-		"code":code,
-		"message":message
-	}
-	if data: error["data"]=data
-	return error
+#def makeRPCError( code, message, data=None ):
+#	error = {
+#		"code":code,
+#		"message":message
+#	}
+#	if data: error["data"]=data
+#	return error
+
+########################################
+########## FLASK API ###################
 
 app = Flask(__name__)
 
@@ -332,60 +354,75 @@ def not_found(e):
 	response = make_response( json )
 	return response
 
-# JSON-RPC Entry point
-@app.route( "/netadmin", methods=["OPTIONS"] )
-def OPTIONS_jsonrpc():	# CORS
-	Write( "OPTIONS - /netadmin (JSONRPC)" )
-	return render_CORS_preflight( request, "POST" )
+#	NETADMIN CAPABILITIES
 
-@app.route( "/netadmin", methods=["POST"] )
-def POST_jsonrpc():
-	Write( "POST - /netadmin (JSONRPC)" )
-	if not request.json:
-		return make_response( "Unexpected data format", 401, {
-			'WWW-Authenticate' : 'Basic realm ="Invalid login"'
-			})	
-	
-	Write( "- IT IS A JSON REQUEST" )
-	jsonrpc = request.json
-	if "jsonrpc" not in jsonrpc or jsonrpc["jsonrpc"] != "2.0":
-		return make_response( "Unexpected data format", 401, {
-			'WWW-Authenticate' : 'Basic realm ="Invalid login"'
-			})
-	Write( "-It is a JSON RPC request" )
+#@app.route( "/netadmin", methods=["OPTIONS"] )
+#def OPTIONS_jsonrpc():	# CORS
+#	Write( "OPTIONS - /netadmin (JSONRPC)" )
+#	return render_CORS_preflight( request, "POST" )
 
-	if "id" not in jsonrpc:
-		Write( "- Notificiation" )
-		# This is a notification / No response required
-		return '', 204
+#@app.route( "/netadmin", methods=["POST"] )
+#def POST_jsonrpc():
+#	Write( "POST - /netadmin (JSONRPC)" )
+#	if not request.json:
+#		return make_response( "Unexpected data format", 401, {
+#			'WWW-Authenticate' : 'Basic realm ="Invalid login"'
+#			})	
+#	
+#	Write( "- IT IS A JSON REQUEST" )
+#	jsonrpc = request.json
+#	if "jsonrpc" not in jsonrpc or jsonrpc["jsonrpc"] != "2.0":
+#		return make_response( "Unexpected data format", 401, {
+#			'WWW-Authenticate' : 'Basic realm ="Invalid login"'
+#			})
+#	Write( "-It is a JSON RPC request" )
+#
+#	if "id" not in jsonrpc:
+#		Write( "- Notificiation" )
+#		# This is a notification / No response required
+#		return '', 204
+#
+#	if "method" in jsonrpc:
+#		# REQUEST
+#		Write( "- REQUEST" )
+#		method = jsonrpc["method"]
+#		if method not in JSONRPC_Requests:
+#			return make_response( 
+#				jsonify(
+#					makeRPC(
+#						error=makeRPCerror(
+#							id=jsonrpc["id"],
+#							code=ERROR_METHOD_NOT_FOUND,
+#							message="Method not found"
+#							)
+#					)
+#				), 200)
+#		# Call the method
+#		JSONRPC_Requests[method]()
+#	else:
+#		# RESPONSE
+#		# We dont expect to see these!
+#		Write( "- RESPONSE" )
+#		pass
+#		
+#	# Need to check authentication here
+#	return make_response( jsonify({'test' : "hello world"}), 200)
+#
+#	return render_CORS_preflight( request, "POST" )
 
-	if "method" in jsonrpc:
-		# REQUEST
-		Write( "- REQUEST" )
-		method = jsonrpc["method"]
-		if method not in JSONRPC_Requests:
-			return make_response( 
-				jsonify(
-					makeRPC(
-						error=makeRPCerror(
-							id=jsonrpc["id"],
-							code=ERROR_METHOD_NOT_FOUND,
-							message="Method not found"
-							)
-					)
-				), 200)
-		# Call the method
-		JSONRPC_Requests[method]()
-	else:
-		# RESPONSE
-		# We dont expect to see these!
-		Write( "- RESPONSE" )
-		pass
-		
-	# Need to check authentication here
-	return make_response( jsonify({'test' : "hello world"}), 200)
+@app.route( "/netadmin", methods=["GET"] )
+def GET_Capabilities():
+	Write( "GET - /netadmin (Capabilities)" )
+	data = {
+		"capabilities":{
+			"auth":{
+				"url":"netadmin/auth"
+			}
+		}
+	}
+	return render_CORS_preflight( request, "GET", data )
 
-	return render_CORS_preflight( request, "POST" )
+#	NETADMIN AUTHENTICATION
 
 @app.route( "/netadmin/auth", methods=["OPTIONS"] )
 def OPTIONS_auth():	# CORS
@@ -394,7 +431,7 @@ def OPTIONS_auth():	# CORS
 	return render_CORS_preflight( request, "POST" )
 
 @app.post( "/netadmin/auth" )
-def post_auth():
+def POST_auth():
 	Write( "POST - /auth" )
 	#log.info( "POST - /auth" )
 
@@ -422,7 +459,8 @@ def post_auth():
 	username  = auth["username"].strip()
 	userpass  = auth["password"].strip()
 	
-	Write( "Username "+str(username) )
+	Write( "Username: "+str(username) )
+	Write( "Password: "+str(userpass) )
 	if username=="" or userpass=="":
 		return make_response( "Unable to verify", 401, {
 			'WWW-Authenticate' : 'Basic realm ="Invalid login"'
@@ -555,7 +593,8 @@ def delete_user():
 	return {"error": "Invalid JSON received"}, 415
 
 
-# ---------- DEVICES --------------------
+########################################
+########## DEVICES #####################
 
 # Get device list
 @app.route( "/api/v1/devices", methods=["OPTIONS"] )
@@ -685,7 +724,8 @@ def get_device(id):
 	Write( "GET - devices - "+str(id) )
 	return DB.getDeviceByID( id )
 	
-# ---------- LOCATIONS --------------------
+########################################
+########## PLACES ######################
 	
 @app.get( "/api/locations" )
 #@jwt_required()
@@ -732,8 +772,8 @@ def search():
 	return {}, 201
 		
 
-# ---------- AUTHENTICATION --------------------
-
+########################################
+########## AUTHENTICATION ##############
 
 """	
 def authenticate(username, password):	
@@ -787,10 +827,10 @@ jwt = JWT(app, authenticate, identity)
 """
 
 ########## JSON-RPC REQUESTS ##########
-
-def Request_Auth():
-	Write( "Request_Auth() Called" )
-	pass
+# This was an experiment and will not be used
+#def Request_Auth():
+#	Write( "Request_Auth() Called" )
+#	pass
 
 ########################################
 
@@ -816,10 +856,11 @@ def debug_request( request ):
 if __name__ == "__main__":
 
 	#	SET UP RPC METHOD CALLS
+	# This was an experiment and will not be used
 
-	JSONRPC_Requests = {
-		"auth":Request_Auth
-	}
+	#JSONRPC_Requests = {
+	#	"auth":Request_Auth
+	#}
 
 	#	CONFIG FILE
 
@@ -858,7 +899,33 @@ if __name__ == "__main__":
 
 	log.info( APPNAME + " Started" )
 
+	#	DATABASE
+
+	db = config.get( APPNAME, 'database', fallback="database.json" )
+	if db=="mysql":
+		pass
+		#import database.mysql as DB
+		#DB.initialise( config )
+	else:
+		if not db.endswith(".json"): db :+ ".json"
+		import database.dictionary as DB
+		DB.initialise( db )
+
+	#	ADMINISTRATOR PASSWORD RESET
+	print( "ARGUMENTS:" + str(len(sys.argv) ) )
+	if len(sys.argv)==4 and sys.argv[1]=="--reset":
+		Write( "Updating administrator account", "WARNING" )
+		username=sys.argv[2]
+		password=sys.argv[3]
+		password_salt =generate_salt()
+		password_hash = generate_hash( password, password_salt )
+		DB.addUser( username, password_hash, password_salt )
+		sys.exit(0)
+
+	sys.quit()
+
 	#	SET UP JWT TOKEN
+
 	#JWT_SECRET_KEY = os.urandom(16).hex()	# WARNING - WILL BE DIFFERENT EACH RUN
 	JWT_Secret_Token = config.get( APPNAME, 'jwt.secret', fallback="" )
 	if JWT_Secret_Token=="": JWT_Secret_Token = os.urandom(16).hex()
@@ -888,21 +955,6 @@ if __name__ == "__main__":
 	MQ.on( "error", on_error )
 	MQ.name( APPNAME )
 	MQ.connect( mq_host, mq_port )
-
-	#	DATABASE
-
-	db = config.get( APPNAME, 'database', fallback="database.json" )
-	if db=="mysql":
-		pass
-		#import database.mysql as DB
-		#DB.initialise( config )
-	else:
-		if not db.endswith(".json"): db :+ ".json"
-		if not os.path.isfile( db ):
-			print( "Datafile does not exist")
-			os.quit()
-		import database.dictionary as DB
-		DB.initialise( db )
 
 	#	KEEPALIVE TIMER
 

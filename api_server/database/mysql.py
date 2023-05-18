@@ -116,3 +116,18 @@ def getDeviceByID( id ):
 	#
 	print( records )
 	return( json.dumps(records) )
+
+def addUser( username, hash, salt ):
+	SQL = """
+		INSERT INTO auth( email, password_hash, password_salt )
+		VALUES( %s,%s,%s );
+	"""
+	#
+	dblock.acquire()
+	#
+	cursor = db.cursor( dictionary=True, buffered=True )
+	cursor.execute( SQL, (username,hash,salt) )
+	db.commit()
+	cursor.close()
+	#
+	dblock.release()
