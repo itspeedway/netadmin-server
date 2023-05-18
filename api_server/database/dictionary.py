@@ -76,10 +76,50 @@ def getUserById( userid ):
 
 	return Database["auth"]["records"][str(userid)]
 
-def getDeviceById( id ):
-	if "devices" not in Database: return {}
-	if id not in Database["devices"]["records"]: return {}
-	return Database["devices"]["records"][id]
+def getNodes():
+	if "nodes" not in Database: return {}
+	if "records" not in Database["nodes"]: return {}
+	
+	return Database["nodes"]["records"]
+
+def getNodeById( id ):
+	if "nodes" not in Database: return {}
+	if id not in Database["nodes"]["records"]: return {}
+	return Database["nodes"]["records"][str(id)]
+
+def insertNode( hostname, ipaddr ):
+	global Database
+	if "nodes" not in Database: Database["nodes"]={}
+	if "counter" not in Database["nodes"]: Database["nodes"]["counter"] = 0
+	if "records" not in Database["nodes"]: Database["nodes"]["records"] = {}
+	if "index.hostname" not in Database["nodes"]: Database["nodes"]["index.hostname"] = {}
+	if "index.ipaddr" not in Database["nodes"]: Database["nodes"]["index.ipaddr"] = {}
+
+	id = 0
+	
+	if hostname in Database["nodes"]["index.hostname"]:
+		id = Database["nodes"]["index.hostname"][hostname]
+		print( "Updating "+hostname+" ["+str(id)+"]")
+		## UPDATE USER
+		Database["nodes"]["records"][str(id)]["hostname"] = hostname
+		Database["nodes"]["records"][str(id)]["ipaddr"] = ipaddr
+
+	else:
+		## NEW USER
+		id = Database["nodes"]["counter"] + 1
+		Database["nodes"]["counter"] = id
+		print( "Adding "+hostname+ " with id "+str(id) )
+	
+		Database["nodes"]["records"][id] = {
+			"id":id,
+			"hostname":hostname,
+			"ipaddr":ipaddr
+		}
+		Database["nodes"]["index.hostname"][hostname] = id
+		Database["nodes"]["index.ipaddr"][ipaddr] = id
+		
+	save()
+	return id
 
 def save():
 	with open( db_filename, 'w', encoding='utf-8') as f:
@@ -91,12 +131,7 @@ def addUpdateUser( username, hash, salt ):
 
 	#print( json.dumps( Database, indent=2))
 
-	if not "auth" in Database:
-		Database["auth"]={
-			"counter":0,
-			"records":{},
-			"index.email":{}
-		}
+	if "auth" not in Database: Database["auth"]={}
 	if "counter" not in Database["auth"]: Database["auth"]["counter"] = 0
 	if "records" not in Database["auth"]: Database["auth"]["records"] = {}
 	if "index.email" not in Database["auth"]: Database["auth"]["index.email"] = {}
@@ -105,7 +140,7 @@ def addUpdateUser( username, hash, salt ):
 
 	if username in Database["auth"]["index.email"]:
 		userid = Database["auth"]["index.email"][username]
-		print( "Updating "+username+" with id="+str(userid))
+		print( "Updating "+username+" ["+str(userid)+"]")
 		## UPDATE USER
 		Database["auth"]["records"][str(userid)]["password_hash"] = hash
 		Database["auth"]["records"][str(userid)]["password_salt"] = salt

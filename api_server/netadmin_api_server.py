@@ -2,6 +2,8 @@
 # (c) Copyright Si Dunford, Jun 2020 to date
 
 import configparser, json, os, sys, threading, logging
+from functools import wraps
+#from functools import wraps
 #import mysql.connector
 
 import jwt
@@ -28,8 +30,8 @@ https://python.plainenglish.io/json-web-tokens-with-python-apis-5777f53f5543
 https://auth0.com/blog/how-to-handle-jwt-in-python/
 
 """
+from flask_jwt import JWT, jwt_required, current_identity
 
-#from flask_jwt import JWT, jwt_required, current_identity
 #from werkzeug.security import generate_password_hash, check_password_hash
 
 #	CONSTANTS / CONFIG
@@ -251,8 +253,8 @@ def generate_jwt_token(content):
     encoded_content = jwt.encode(content, JWT_Secret_Token, algorithm="HS256")
     #Write( "ENCODED: "+str( encoded_content )) 
     #sys.exit(0)
-    #token = str(encoded_content).split("'")[1]
-    return encoded_content
+    token = str(encoded_content).split("'")[1]
+    return token
 
 # User validation returns "None" or a valid JWT Token
 def validate_user( email, password ):
@@ -515,166 +517,157 @@ def POST_auth():
 #	return render_CORS_preflight( request, "POST" )
 
 # Login attempt (old)
-@app.route( "/api/auth/login", methods=["OPTIONS"] )
-def login_CORS():
-	Write( "/api/auth/login,OPTIONS" )
-	#yield( "Login attempt" )
-	Write( "OPTIONS - login" )
-	
-	#if request.method == "OPTIONS":	# CORS Preflight check
-	return render_CORS_preflight( request, "GET,POST" )
+#@app.route( "/api/auth/login", methods=["OPTIONS"] )
+#def login_CORS():
+#	Write( "/api/auth/login,OPTIONS" )
+#	#yield( "Login attempt" )
+#	Write( "OPTIONS - login" )
+#	
+#	#if request.method == "OPTIONS":	# CORS Preflight check
+#	return render_CORS_preflight( request, "GET,POST" )
+#
+#@app.post( "/api/auth/login" )
+#def user_login():
+#	Write( "User authentication" )
+#	
+#	#response = Response(render_template( "index.html" ))
+#	#response = add_CORS_Header( response )
+#	
+#	Write( str( request.json) )
+#	
+#	if request.json:
+#		Write( "ITS JSON" )
+#		if "username" in request.json and "password" in request.json:
+#			Write( "has username and password" )
+#	
+#			#if request.is_json: # and "username" in request.json and "password" in request.json:
+#			user_name  = request.json["username"]
+#			user_pass  = request.json["password"]
+#			(success,errortext,user_token) = validate_user( user_name, user_pass )
+#
+#			if user_token:
+#				Write( "Login success" )
+#				return jsonify({"jwt_token": user_token})
+#			else:
+#				Write( "Login failure: "+errortext )
+#				return Response( errortext, status=401 )
+#	Write( "Returning Invalid JSON" )
+#	return jsonify({"error": "Invalid JSON received"}), 415
 
-@app.post( "/api/auth/login" )
-def user_login():
-	Write( "User authentication" )
-	
-	#response = Response(render_template( "index.html" ))
-	#response = add_CORS_Header( response )
-	
-	Write( str( request.json) )
-	
-	if request.json:
-		Write( "ITS JSON" )
-		if "username" in request.json and "password" in request.json:
-			Write( "has username and password" )
-	
-			#if request.is_json: # and "username" in request.json and "password" in request.json:
-			user_name  = request.json["username"]
-			user_pass  = request.json["password"]
-			(success,errortext,user_token) = validate_user( user_name, user_pass )
-
-			if user_token:
-				Write( "Login success" )
-				return jsonify({"jwt_token": user_token})
-			else:
-				Write( "Login failure: "+errortext )
-				return Response( errortext, status=401 )
-	Write( "Returning Invalid JSON" )
-	return jsonify({"error": "Invalid JSON received"}), 415
-
-# Password Recovery / Change password
-@app.post( "/api/auth/recover" )
-def post_recover():
-	Write( "POST - recover" )
-	if request.is_json:
-		pass
-		
-		user_email = request.json["email"]
-		user_password = request.json["password"]
-		user_confirm_password = request.json["confirm_password"]
-
-		if user_password == user_confirm_password and validate_user_input(
-			"authentication", email=user_email, password=user_password
-		):
-			password_salt = generate_salt()
-			password_hash = generate_hash(user_password, password_salt)
-
-			if db_write(
-				"""INSERT INTO users (email, password_salt, password_hash) VALUES (%s, %s, %s)""",
-				(user_email, password_salt, password_hash),
-			):
-				# Registration Successful
-				return Response(status=201)
-			else:
-				# Registration Failed
-				return Response(status=409)
-		else:
-			# Registration Failed
-			return Response(status=400)
-		
-	return {"error": "Invalid JSON received"}, 415
-
-# Add a user account
-@app.post( "/api/auth" )
-def post_user():
-	if request.is_json:
-		device = request.get_json()
-		
-		return device, 201
-	return {"error": "Invalid JSON received"}, 415
-
-# Delete a user account
-@app.delete( "/api/auth/<id>" )
-def delete_user():
-	if request.is_json:
-		device = request.get_json()
-		
-		return device, 201
-	return {"error": "Invalid JSON received"}, 415
+## Password Recovery / Change password
+##@app.post( "/api/auth/recover" )
+#def post_recover():
+#	Write( "POST - recover" )
+#	if request.is_json:
+#		pass
+#		
+#		user_email = request.json["email"]
+#		user_password = request.json["password"]
+#		user_confirm_password = request.json["confirm_password"]
+#
+#		if user_password == user_confirm_password and validate_user_input(
+#			"authentication", email=user_email, password=user_password
+#		):
+#			password_salt = generate_salt()
+#			password_hash = generate_hash(user_password, password_salt)
+#
+#			if db_write(
+#				"""INSERT INTO users (email, password_salt, password_hash) VALUES (%s, %s, %s)""",
+#				(user_email, password_salt, password_hash),
+#			):
+#				# Registration Successful
+#				return Response(status=201)
+#			else:
+#				# Registration Failed
+#				return Response(status=409)
+#		else:
+#			# Registration Failed
+#			return Response(status=400)
+#		
+#	return {"error": "Invalid JSON received"}, 415
+#
+## Add a user account
+#@app.post( "/api/auth" )
+#def post_user():
+#	if request.is_json:
+#		device = request.get_json()
+#		
+#		return device, 201
+#	return {"error": "Invalid JSON received"}, 415
+#
+## Delete a user account
+#@app.delete( "/api/auth/<id>" )
+#def delete_user():
+#	if request.is_json:
+#		device = request.get_json()
+#		
+#		return device, 201
+#	return {"error": "Invalid JSON received"}, 415
 
 
 ########################################
-########## DEVICES #####################
+########## NODES #####################
 
 # Get device list
-@app.route( "/api/v1/devices", methods=["OPTIONS"] )
-def devices_CORS():
-	Write( "/api/v1/devices,OPTIONS" )
-	print( "REQUEST: /api/v1/devices,OPTIONS" )
+@app.route( "/netadmin/nodes", methods=["OPTIONS"] )
+def OPTIONS_nodes(): # CORS
+	Write( "/netadmin/nodes, OPTIONS" )
+	#print( "REQUEST: /api/v1/devices,OPTIONS" )
 	
 	debug_request( request )
 	
-	Write( "OPTIONS - devices" )
-	return render_CORS_preflight( request, "GET" )	#"GET,POST" )
+	Write( "OPTIONS - nodes" )
+	return render_CORS_preflight( request, "GET,POST" )
 
 # Get device list
-@app.get( "/api/v1/devices" )
-def devices_GET():
-	Write( "/api/v1/devices,GET" )
-	print( "REQUEST: /api/v1/devices,GET" )
+@app.get( "/netadmin/nodes" )
+def GET_nodes():
+	Write( "/netadmin/nodes, GET" )
+	#print( "REQUEST: /api/v1/devices,GET" )
 
 	debug_request( request )
 
-	SQL = """
-		SELECT D.id,D.hostname,D.ipaddress,D.icon as type,D.status,L.name as location
-		FROM devices D
-		LEFT JOIN locations L
-		ON D.location = L.id;
-	"""
-	#
-	dblock.acquire()
-	#
-	cursor = db.cursor( dictionary=True, buffered=True )
-	cursor.execute( SQL )
-	records = cursor.fetchall()
-	count = cursor.rowcount
-	db.commit()
-	cursor.close()
-	#
-	dblock.release()
+	list = DB.getNodes()
+	if not list: return {}
 
-	data = {}
-	# {"id": 41, "hostname": "LBB_BRO_LIB_RT01", "status": 0}
-	for device in records:
-		print( str(device) )
-		data[ device[ "hostname" ] ] = { "id":device[ "id" ], "type":device["type"], "ipaddress":device["ipaddress"], "status":device[ "status" ], "location":device[ "location" ] }
+	Write( json.dumps( list ) )
+ 
+#
+#	data = {}
+#	# {"id": 41, "hostname": "LBB_BRO_LIB_RT01", "status": 0}
+#	for device in records:
+#		print( str(device) )
+#		data[ device[ "hostname" ] ] = { "id":device[ "id" ], "type":device["type"], "ipaddress":device["ipaddress"], "status":device[ "status" ], "location":device[ "location" ] }
+#	
+#	#print( str(data) )
+#	
+#	Write( "GET - devices" )
+	return render_CORS_preflight( request, "GET", list )
+
+# Add device
+@app.post( "/netadmin/nodes" )
+def POST_nodes():
+	Write( "/netadmin/nodes, POST (Add device)" )
+	if not request.is_json:
+		return {"error": "Invalid JSON received"}, 415
 	
-	#print( str(data) )
-	
-	Write( "GET - devices" )
-	return render_CORS_preflight( request, "GET", data )
+	device = request.get_json()
 
-# THIS IS DUE TO BE TIED TO "ADD DEVICE"
-@app.post( "/api/v1/device" )
-def device_POST():
-	Write( "Post Device" )
-	if request.is_json:
-		device = request.get_json()
+	#id       = request.json["id"]
+	hostname = request.json["hostname"]
+	ipaddr   = request.json["ipaddr"]
 
-		#id       = request.json["id"]
-		hostname = request.json["hostname"]
-		ipaddr   = request.json["ipaddr"]
+	if hostname == "":
+		return {"error": "Invalid hostname"}, 400
 
-		SQL = """
-			INSERT INTO devices(hostname,ipaddr) VALUES (%s, %s)
-			"""
-		if db_write( SQL, ( hostname, ipaddr) ):
-			# Registration Successful
-			return Response(status=201)
-		else:
-			# Registration Failed
-			return Response(status=409)
-	return {"error": "Invalid JSON received"}, 415
+	id = DB.insertNode( hostname, ipaddr )
+	if id:
+		# Registration Successful
+		return Response(jsonify( {"id":id} ), status=201)
+	else:
+		# Registration Failed
+		return Response(jsonify( {"error":"Add device failed"} ), status=409)
+
 
 # Get all devices at a specific location
 @app.get( "/api/devices/at/<location>" )
@@ -704,7 +697,7 @@ def get_devices_in(location):
 
 # Get all devices
 @app.get( "/api/devices" )
-#@jwt_required()
+@jwt_required()
 def get_devices():
 	Write( "GET - devices" )
 	SQL = """

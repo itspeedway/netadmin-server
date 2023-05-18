@@ -1,0 +1,10 @@
+#!/bin/bash
+
+if [ -z "$3" ]; then
+    echo "Syntax: $0 <name> <ipaddr> <token>"
+    exit 1
+fi
+
+curl -H 'Content-Type: application/json' -d '{"hostname":"'$1'","ipaddr":"'$2'"}' -X POST "http://127.0.0.1:4010/netadmin/nodes"
+echo ""
+

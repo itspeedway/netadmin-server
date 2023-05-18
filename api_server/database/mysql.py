@@ -111,8 +111,30 @@ def getUserByEmail( email ):
 	except Exception as e:
 		Write(str(e))
 		return None
+
+def getNodes():
 	
-def getDeviceByID( id ):
+	SQL = """
+		SELECT D.id,D.hostname,D.ipaddress,D.icon as type,D.status,L.name as location
+		FROM devices D
+		LEFT JOIN locations L
+		ON D.location = L.id;
+	"""
+	#
+	dblock.acquire()
+	#
+	cursor = db.cursor( dictionary=True, buffered=True )
+	cursor.execute( SQL )
+	records = cursor.fetchall()
+	count = cursor.rowcount
+	db.commit()
+	cursor.close()
+	#
+	dblock.release()
+
+	return( json.dumps(records) )
+
+def getNodeByID( id ):
 	SQL = """
 		SELECT id,hostname,ipaddress,class,location,icon,status
 		FROM devices
@@ -132,6 +154,28 @@ def getDeviceByID( id ):
 	#
 	print( records )
 	return( json.dumps(records) )
+
+def insertNode( hostname, ipaddr ):
+	SQL = """
+		INSERT INTO devices(hostname,ipaddr) VALUES (%s, %s)
+		"""
+	cursor = db.cursor()
+	try:
+		cursor.execute( SQL, ( hostname, ipaddr) )
+		db.commit()
+		id = cursor.lastrowid
+		cursor.close()
+		return id
+	#except MySQLdb._exceptions.IntegrityError:
+	#	Write( "FAILED\n  "+str(SQL), "ERROR" )
+	#	cursor.close()
+	#	return None
+	except Exception as e:
+		Write( "EXCEPTION: "+str(e)+"\n  "+str(SQL), "ERROR" )
+		cursor.close()
+		return None
+	
+	return id
 
 # Add or Update a user account password
 def addUpdateUser( username, hash, salt ):
