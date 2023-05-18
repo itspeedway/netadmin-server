@@ -43,6 +43,7 @@ APPNAME = "netadmin-api-server"
 MQ=None
 DB=None
 JWT_Secret_Token=None
+log=None
 
 # This was an experiment and will not be used
 #JSONRPC_Requests = {}
@@ -56,6 +57,7 @@ ERROR_INTERNAL_ERROR   = -32603 	# Internal JSON-RPC error.
 ########## UTILITY FUNCTIONS ############################
 
 def Write( message, severity="INFO" ):
+	global log
 
 	print( severity+": "+message, file=sys.stderr )
 	#print('This is error output', file=sys.stderr)
@@ -64,25 +66,28 @@ def Write( message, severity="INFO" ):
 
 	#with open( RUNLOG, "a" ) as myfile:
 	#	myfile.write( severity+", "+message.replace(",",";")+"\n" )
-		
+	
+	if not log:
+		sys.quit(99)
+
 	#now = datetime.now()
 	#time = now.strftime( "%H:%M:%S" )
 
 	#with open( LOGPATH+str( now.date() )+".log", "a" ) as file:
 	#	file.write( str(time)+" - " + severity+" - "+str(message)+"\n" )
 	if severity == "INFO":
-		logging.info( message )
+		log.info( message )
 	elif severity=="DEBUG":
-		logging.debug( message )
+		log.debug( message )
 	elif severity=="WARNING":
-		logging.warning( message )
+		log.warning( message )
 	elif severity=="ERROR":
-		logging.error( message )
+		log.error( message )
 	elif severity=="CRITICAL":
-		logging.critical( message )
+		log.critical( message )
 	else:
-		logging.critical( "Unknown severity level: "+severity )
-		logging.debug( message )
+		log.critical( "Unknown severity level: "+severity )
+		log.debug( message )
 
 # Equivalent of Javascript setTimeout( delay, callback )
 class setTimeout( Timer ):
@@ -130,9 +135,10 @@ def token_required(f):
         try:
             # decoding the payload to fetch the stored details
             data = jwt.decode(token, app.config['SECRET_KEY'])
-            current_user = User.query\
-                .filter_by(public_id = data['public_id'])\
-                .first()
+            current_user = DB.getUserById( data['public_id'])
+            #current_user = User.query\
+            #    .filter_by(public_id = data['public_id'])\
+            #    .first()
         except:
             return jsonify({
                 'message' : 'Token is invalid !!'
@@ -351,6 +357,7 @@ def not_found(e):
 			"data": str(e)
 			}
 		})
+	Write( "404 issued" )
 	response = make_response( data )
 	return response
 
