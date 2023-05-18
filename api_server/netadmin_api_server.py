@@ -342,15 +342,14 @@ app = Flask(__name__)
 # Handle 404 Page not found errors
 @app.errorhandler(404)
 def not_found(e):
-	json = jsonify({
-		"jsonrpc":"2.0",
+	data = jsonify({
 		"error":{
 			"code": "404",
 			"message": "Page not found",
-			"data": e
+			"data": str(e)
 			}
 		})
-	response = make_response( json )
+	response = make_response( data )
 	return response
 
 #	NETADMIN CAPABILITIES
