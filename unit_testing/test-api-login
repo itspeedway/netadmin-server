@@ -1,0 +1,21 @@
+#!/bin/bash
+
+# Obtains a token using developer test account and saves it
+# to a file used by other scripts
+
+filename=token.jwt
+key=token
+
+curl -s -H 'Content-Type: application/json' -d '{"username":"Scaremonger","password":"Password123"}' -X POST "http://127.0.0.1:4010/netadmin/auth" > $filename
+
+sed -i 's|"||g' $filename
+sed -i 's|\s||g' $filename
+
+token=$(grep $key $filename | cut -d ":" -f2-)
+
+echo $token>$filename
+#| grep -o '"token":"[^"]*' 
+#| grep -o '[^"]*$'
+
+echo $token
+

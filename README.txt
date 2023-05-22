@@ -25,15 +25,19 @@ Install dependencies:
 
 	cd /d D:\NetadminAPI
 	venv\scripts\activate
-	!! python -m pip install requests
 	python -m pip install --upgrade pip
 	python -m pip install --upgrade mysql-connector-python
 	python -m pip install --upgrade flask
-	python -m pip install --upgrade websocket
-	python -m pip install --upgrade websocket-client
-	!! python -m pip install --upgrade flask-cors
-    python -m pip install --upgrade PyJWT
-	
+    python -m pip install --upgrade flask_restful
+    python -m pip install --upgrade flask_jwt
+
+    python3 -m pip uninstall PyJWT
+
+    Depreciated
+	!! python -m pip install --upgrade requests
+	!! python -m pip install --upgrade websocket
+	!! python -m pip install --upgrade websocket-client
+	!! python -m pip install --upgrade flask-cors	
 
 The first time you run this script you will be asked to save the server fingerprint; please say yes.
 
@@ -42,10 +46,15 @@ UPGRADE:
 (Requires internet access)
 
 	python -m pip install --upgrade pip
-	pip install --upgrade git+https://github.com/CheckPointSW/cp_mgmt_api_python_sdk
 
 ADD OR UPDATE ADMINISTRATOR
-Run the "reset_password" script and provide administrator name and password
+Run the "reset_admin" script and provide administrator name and password
+
+    LINUX:
+    $ ./reset_admin.sh
+
+    WINDOWS
+    $ reset_admin
 
 DESIGN IDEALS
 All of these web services should run in different threads
@@ -56,7 +65,7 @@ REST API
 	Methods:
 		GET		Obtain a single record
 		DELETE	Delete an individual record
-		HEAD	Returns the same as GET, but without a payload
+		HEAD	Returns the same as GET, Payload only contains "COUNT"
 		OPTIONS	Not used (Apart from CORS where necessary)
 		PATCH	Update an existing record
 		POST	Create a record
@@ -64,13 +73,19 @@ REST API
 
 	Header:
 		All requests expect an Authentication-Bearer token in the header
-		
+	
+    Request:
+        {
+        "netadmin":"1",     # Always use 1.0 or packet will be invalid
+        "data":<CONTENT>
+        }
+
 	Response:
 		All responses must return a valid JSON payload if possible, even if it is a null object: {}
 		Valid responses should contain:
 	
 			{
-			"response":<CONTENT>
+			"data":<CONTENT>
 			}
 			
 		Errors should return:
@@ -89,7 +104,7 @@ AVAILABLE SERVICES:
 	
 		All api's will be routed in the URI:
 		
-			/api/v1/
+			/netadmin
 			
 	Service Port:
 	
@@ -104,18 +119,30 @@ We need one that is used for registration of events and uses a web-socket to the
 
 We need:
 
-	/search
-	
-		POST along with criteria
 
-	/devices				Obtains a list of all available devices
-	/devices/[location]		Obtains a list of devices in a location
-	
-		Only HEAD/GET are valid for this service
-	
-	/locations				Obtains a list of all available locations
+    /auth
+        POST            Login to obtain a token
 
-		Only HEAD/GET are valid for this service
+	/search                 
+        POST            along with criteria
+
+	/nodes
+        GET				Obtains a list of nodes
+	    HEAD            Obtains a count of nodes
+        POST            Add new node
+
+	/nodes/?location=<LOCATION>
+        GET     		Obtains a list of nodes in a location
+	    HEAD            Obtains a count of nodes in a location
+	
+    /nodes/<id>
+        GET             Obtain a single node
+        PATCH           UPDATE single node (provided fields only)
+        PUT             REPLACE single node (Overwrite all fields)
+
+	/locations
+        GET				Obtains a list of locations
+	    HEAD            Obtains a count of locations
 
 	/devices/<id>					Operations on a single device	(GET/DELETE/HEAD/PATCH/POST/PUT)
 	/devices/<id>/[<ACTION>]		Actions on a single device		(PUT)

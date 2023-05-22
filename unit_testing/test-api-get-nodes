@@ -1,0 +1,14 @@
+#!/bin/bash
+
+filename=token.jwt
+
+if [ ! -f token.jwt ]; then
+    echo File 'token.jwt' is missing; please run 'test-api-login'
+    exit 1
+fi
+
+token=`cat $filename`
+
+curl -H 'Accept: application/json' -H "Authorization: Bearer $token" -X GET "http://127.0.0.1:4010/netadmin/nodes"
+
+

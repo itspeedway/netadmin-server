@@ -10,6 +10,7 @@ log/
 # Exclude files
 config.ini
 database.json
+token.jwt
 
 *.zip
 

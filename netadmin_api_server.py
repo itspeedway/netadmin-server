@@ -6,6 +6,8 @@ from functools import wraps
 #from functools import wraps
 #import mysql.connector
 
+#from flask_jwt import jwt
+#from flask_jwt import jwt_required, current_identity
 import jwt
 
 from pathlib import Path
@@ -21,6 +23,7 @@ from hashlib import pbkdf2_hmac
 
 """
 FURTHER READING:
+# https://stackoverflow.com/questions/44926107/adding-resources-with-jwt-required
 
 https://medium.com/@karthikeyan.ranasthala/build-a-jwt-based-authentication-rest-api-with-flask-and-mysql-5dc6d3d1cb82
 https://roytuts.com/jwt-authentication-using-python-flask/
@@ -30,7 +33,7 @@ https://python.plainenglish.io/json-web-tokens-with-python-apis-5777f53f5543
 https://auth0.com/blog/how-to-handle-jwt-in-python/
 
 """
-from flask_jwt import JWT, jwt_required, current_identity
+
 
 #from werkzeug.security import generate_password_hash, check_password_hash
 
@@ -44,6 +47,7 @@ MQ=None
 DB=None
 JWT_Secret_Token=None
 log=None
+timer=None
 
 # This was an experiment and will not be used
 #JSONRPC_Requests = {}
@@ -53,6 +57,127 @@ ERROR_INVALID_REQUEST  = -32600 	# The JSON sent is not a valid Request object.
 ERROR_METHOD_NOT_FOUND = -32601 	# The method does not exist / is not available.
 ERROR_INVALID_PARAMS   = -32602 	# Invalid method parameter(s).
 ERROR_INTERNAL_ERROR   = -32603 	# Internal JSON-RPC error.
+
+########################################
+########## AUTHENTICATION ##############
+
+# User Authentication returns "None" or a valid JWT Token
+def authenticate( username, password ):
+	print( "== Authenticating "+username )
+	username = username.strip()
+	password = password.strip()
+	if username=="" or password=="": 
+		return None
+	
+	try:
+		# user = db_read( """SELECT * FROM auth WHERE username=%s""", (email,))
+		user = DB.getUserByUsername( username )
+		if not user: return None
+		Write( "USER: "+str( user ) )
+
+		# This doesn't take SALT into account:
+		#if not check_password_hash( user['password'], password ):
+		#	return None
+		#Write( "- Password hash OK" )
+
+		# Check password hash using salt
+		saved_password_hash = user["password_hash"]
+		saved_password_salt = user["password_salt"]
+		if saved_password_hash==None or saved_password_salt==None: 
+			return None		
+		password_hash = generate_hash( password, saved_password_salt )
+		if password_hash != saved_password_hash: return None
+
+		Write( "- Salted hash correct")
+
+		userid = user["id"]
+		jwt_token = generate_jwt_token({"id": userid})
+		return jwt_token
+	except Exception as e:
+		print(str(e))
+	return None
+	
+#def authenticate(username, password):	
+#	if username and password:
+#		#conn = None;
+#		#cursor = None;
+#		dblock.acquire()
+#		try:
+#			#conn = mysql.connect()
+#			#cursor = conn.cursor(pymysql.cursors.DictCursor)
+#			cursor = db.cursor( dictionary=True )
+#			SQL = "SELECT id,name,level FROM auth WHERE email=%s AND password=%s;"
+#			cursor.execute( SQL, (username, password)
+#			row = cursor.fetchone()
+#			
+#			if row:
+#				if check_password_hash(row['password'], password):
+#					return User(row['id'], row['username'])
+#			else:
+#				return None
+#		except Exception as e:
+#			print(e)
+#		finally:
+#			cursor.close() 
+#			conn.close()
+#	return None
+
+def identity( payload ):
+	print( "== Validate Identitiy" )
+	if not payload['id']: return None
+	user = DB.getUserById( payload['id'] )
+	if not user: return None
+
+	return user
+	#return (user['id'], user['username'])
+
+	
+#def identity(payload):
+#	if payload['identity']:
+#		conn = None;
+#		cursor = None;
+#		try:
+#			conn = mysql.connect()
+#			cursor = conn.cursor(pymysql.cursors.DictCursor)
+#			cursor.execute("SELECT id, username FROM user WHERE id=%s", payload['identity'])
+#			row = cursor.fetchone()
+#			
+#			if row:
+#				return (row['id'], row['username'])
+#			else:
+#				return None
+#		except Exception as e:
+#			print(e)
+#		finally:
+#			cursor.close() 
+#			conn.close()
+#	else:
+#		return None
+
+# 22 MAY 2023, COmmented as not used!
+#def validateJWT( request ):
+#	token = None
+#	# jwt is passed in the request header
+#	if 'x-access-token' in request.headers:
+#		token = request.headers['x-access-token']
+#	if not token: return (None,"Token is missing")
+#
+#	try:
+#		# decoding the payload to fetch the stored details
+#		data = jwt.decode(token, JWT_Secret_Token )
+#		current_user = User.query\
+#			.filter_by(id = data['id'])\
+#			.first()
+#		return (current_user,None)
+#	except:
+#		return (None,"Token is invalid")	
+
+
+########################################
+########## FLASK API ###################
+
+app = Flask(__name__)
+#jwt = JWT( app, authenticate, identity )
 
 ########## UTILITY FUNCTIONS ############################
 
@@ -68,7 +193,8 @@ def Write( message, severity="INFO" ):
 	#	myfile.write( severity+", "+message.replace(",",";")+"\n" )
 	
 	if not log:
-		sys.quit(99)
+		print( "# LOG is not defined" )
+		return
 
 	#now = datetime.now()
 	#time = now.strftime( "%H:%M:%S" )
@@ -92,12 +218,13 @@ def Write( message, severity="INFO" ):
 # Equivalent of Javascript setTimeout( delay, callback )
 class setTimeout( Timer ):
 	def run( self ):
+		Write( "- setTimeout() started" )
 		while not self.finished.wait( self.interval ):
 			self.function( *self.args, **self.kwargs )
 			
 # Timeout keepalive
 def keepalive():
-	Write( "Keepalive", "DEBUG" )
+	Write( "# Keepalive" )	#, "DEBUG" )
 
 ########## MESSAGE QUEUE ###############
 
@@ -121,32 +248,39 @@ def on_message( message ):
 
 # DECORATOR FOR JWT VERIFICATION
 # https://www.geeksforgeeks.org/using-jwt-for-user-authentication-in-flask/
-def token_required(f):
-    @wraps(f)
-    def decorated(*args, **kwargs):
-        token = None
-        # jwt is passed in the request header
-        if 'x-access-token' in request.headers:
-            token = request.headers['x-access-token']
-        # return 401 if token is not passed
-        if not token:
-            return jsonify({'message' : 'Token is missing !!'}), 401
-  
-        try:
-            # decoding the payload to fetch the stored details
-            data = jwt.decode(token, app.config['SECRET_KEY'])
-            current_user = DB.getUserById( data['public_id'])
-            #current_user = User.query\
-            #    .filter_by(public_id = data['public_id'])\
-            #    .first()
-        except:
-            return jsonify({
-                'message' : 'Token is invalid !!'
-            }), 401
-        # returns the current logged in users contex to the routes
-        return  f(current_user, *args, **kwargs)
-  
-    return decorated
+def jwt_protected(f):
+	@wraps(f)
+	def decorator(*args, **kwargs):
+		global JWT_Secret_Token
+		try:
+			print( "-JWT Protection...")
+			token = None
+			# jwt is passed in the Autheorisaton Bearer header
+			if 'Authorization' in request.headers:
+				token = request.headers['Authorization'].split()[1]
+			print( "TOKEN: "+str(token ))
+			# return 401 if token is not passed
+			if not token:
+				return jsonify({'message' : 'Token is missing !!'}), 401
+
+			# decoding the payload to fetch the stored details
+			print( "DECODING:" )
+			print( "SECRET:  "+JWT_Secret_Token)
+			data = jwt.decode(str(token), JWT_Secret_Token, algorithms="HS256")
+			print( "DECODED: "+str(data))
+			current_user = DB.getUserById( data['id'])
+			#current_user = User.query\
+			#    .filter_by(public_id = data['public_id'])\
+			#    .first()
+		except Exception as e:
+			print( str(e) )
+			return jsonify({
+				'message' : 'Token is invalid !!'
+			}), 401
+		# returns the current logged in users contex to the routes
+		return  f(current_user, *args, **kwargs)
+
+	return decorator
 
 
 
@@ -255,96 +389,15 @@ def generate_hash( plain_password, password_salt ):
     return password_hash.hex()
 
 def generate_jwt_token(content):
-    #Write( "CONTENT: "+str( content ))     
+    global JWT_Secret_Token
+    Write( "CONTENT: "+str( content ))
+    Write( "SECRET:  "+JWT_Secret_Token)
     encoded_content = jwt.encode(content, JWT_Secret_Token, algorithm="HS256")
-    #Write( "ENCODED: "+str( encoded_content )) 
-    #sys.exit(0)
-    token = str(encoded_content).split("'")[1]
-    return token
-
-# User validation returns "None" or a valid JWT Token
-def validate_user( email, password ):
-	email = email.strip()
-	password = password.strip()
-	if email=="" or password=="": 
-		return None
-	
-	#current_user = db_read( """SELECT * FROM auth WHERE email=%s""", (email,))
-	current_user = DB.getUserByEmail( email )
-	if not current_user: return None
-	Write( "USER: "+str( current_user ) )
-	saved_password_hash = current_user["password_hash"]
-	saved_password_salt = current_user["password_salt"]
-	if saved_password_hash==None or saved_password_salt==None: 
-		return None
-	
-	password_hash = generate_hash( password, saved_password_salt )
-	if password_hash != saved_password_hash: return None
-
-	userid = current_user["id"]
-	jwt_token = generate_jwt_token({"id": userid})
-	return jwt_token
-
-def validateJWT( request ):
-	token = None
-	# jwt is passed in the request header
-	if 'x-access-token' in request.headers:
-		token = request.headers['x-access-token']
-	if not token: return (None,"Token is missing")
-
-	try:
-		# decoding the payload to fetch the stored details
-		data = jwt.decode(token, JWT_Secret_Token )
-		current_user = User.query\
-			.filter_by(public_id = data['public_id'])\
-			.first()
-		return (current_user,None)
-	except:
-		return (None,"Token is invalid")	
-
-#class User:
-#
-#	def query(*,email):
-#		SQL = "SELECT * FROM auth WHERE email=%s;"
-#		try:
-#			cursor = db.cursor( dictionary=True, buffered=True )
-#			cursor.execute( SQL, (email,) )
-#			entries = cursor.fetchall()
-#			cursor.close()
-#			return entries[0]
-#			content = []
-#			for entry in entries:
-#				content.append(entry)
-#			return content
-#		except Exception as e:
-#			Write(str(e))
-#			return None
-
-#def makeRPC( id=None, method=None, params=None, error=None, result=None ):
-#	jsonrpc = {
-#		"jsonrpc":"2.0",
-#	}
-#	if id: jsonrpc["id"] = id
-#	if method: jsonrpc["method"] = method
-#	if params: jsonrpc["params"] = params
-#	if result: jsonrpc["result"] = result
-#	if error: jsonrpc["error"] = error
-#	return jsonrpc
-#
-#	START API
-
-#def makeRPCError( code, message, data=None ):
-#	error = {
-#		"code":code,
-#		"message":message
-#	}
-#	if data: error["data"]=data
-#	return error
-
-########################################
-########## FLASK API ###################
-
-app = Flask(__name__)
+    Write( "ENCODED: "+str( encoded_content )) 
+    return encoded_content
+	#sys.exit(0)
+    #token = str(encoded_content).split("'")[1]
+    #return token
 
 
 # Handle 404 Page not found errors
@@ -474,14 +527,14 @@ def POST_auth():
 			})
 		
 	#user = User.query( email=username )
-	#user = DB.getUserByEmail( username )
+	#user = DB.getUserByUsername( username )
 	#if not user:
 	#	return make_response( "Unable to verify", 401, {
 	#		'WWW-Authenticate' : 'Basic realm ="Invalid login"'
 	#		})
 	#Write( "USER: "+str(user) )
 	
-	token = validate_user( username, userpass )
+	token = authenticate( username, userpass )
 
 	if not token:
 		message = jsonify( {"error":"Login failed"} )
@@ -490,7 +543,7 @@ def POST_auth():
 			})
 
  	# Token is valid
-	return jsonify({"jwt_token": token})
+	return jsonify({"token": token})
 
 	# Generate a password hash
 	#Write( "Checking hash" )
@@ -628,7 +681,8 @@ def OPTIONS_nodes(): # CORS
 
 # Get device list
 @app.get( "/netadmin/nodes" )
-def GET_nodes():
+@jwt_protected
+def GET_Nodes( user ):		# Argument is authenticated use provided by decorator
 	Write( "/netadmin/nodes, GET" )
 	#print( "REQUEST: /api/v1/devices,GET" )
 
@@ -653,6 +707,7 @@ def GET_nodes():
 
 # Add device
 @app.post( "/netadmin/nodes" )
+@jwt_protected
 def POST_nodes():
 	Write( "/netadmin/nodes, POST (Add device)" )
 	if not request.is_json:
@@ -675,10 +730,18 @@ def POST_nodes():
 		# Registration Failed
 		return Response(jsonify( {"error":"Add device failed"} ), status=409)
 
+# Get a specific device
+@app.get( "/netadmin/nodes/<int:id>" )
+@jwt_protected
+def GET_Node( id ):
+	Write( "/netadmin/nodes/"+str(id)+", GET" )
+	data = DB.getNodeById( id )
+	print( str(data) )
+	return Response( str(data), status = 200 )
 
 # Get all devices at a specific location
 @app.get( "/api/devices/at/<location>" )
-#@token_required
+#@jwt_protected
 def get_devices_in(location):
 	Write( "GET - devices at location: "+location )
 	SQL = """
@@ -704,7 +767,7 @@ def get_devices_in(location):
 
 # Get all devices
 @app.get( "/api/devices" )
-@jwt_required()
+@jwt_protected
 def get_devices():
 	Write( "GET - devices" )
 	SQL = """
@@ -727,18 +790,11 @@ def get_devices():
 	print( records )
 	return( json.dumps(records) )
 	
-# Get a specific device
-@app.get( "/netadmin/devices/<id>" )
-#@jwt_required()
-def get_device(id):
-	Write( "GET - devices - "+str(id) )
-	return DB.getDeviceByID( id )
-	
 ########################################
 ########## PLACES ######################
 	
 @app.get( "/api/locations" )
-#@jwt_required()
+#@jwt_protected
 def get_locations():
 	Write( "GET - locations" )
 	SQL = """
@@ -762,7 +818,7 @@ def get_locations():
 	return( json.dumps(records) )
 	
 @app.post( "/api/devices" )
-#@jwt_required()
+#@jwt_protected
 def add_device():
 	if request.is_json:
 		device = request.get_json()
@@ -771,7 +827,7 @@ def add_device():
 	return {"error": "Invalid JSON received"}, 415
 
 @app.post( "/api/search" )
-#@jwt_required()
+#@jwt_protected
 def search():
 	if not request.is_json:
 		return {"error": "Invalid JSON received"}, 415
@@ -782,59 +838,7 @@ def search():
 	return {}, 201
 		
 
-########################################
-########## AUTHENTICATION ##############
 
-"""	
-def authenticate(username, password):	
-	if username and password:
-		#conn = None;
-		#cursor = None;
-		dblock.acquire()
-		try:
-			#conn = mysql.connect()
-			#cursor = conn.cursor(pymysql.cursors.DictCursor)
-			cursor = db.cursor( dictionary=True )
-			SQL = "SELECT id,name,level FROM auth WHERE email=%s AND password=%s;"
-			cursor.execute( SQL, (username, password)
-			row = cursor.fetchone()
-			
-			if row:
-				if check_password_hash(row['password'], password):
-					return User(row['id'], row['username'])
-			else:
-				return None
-		except Exception as e:
-			print(e)
-		finally:
-			cursor.close() 
-			conn.close()
-	return None
-
-def identity(payload):
-	if payload['identity']:
-		conn = None;
-		cursor = None;
-		try:
-			conn = mysql.connect()
-			cursor = conn.cursor(pymysql.cursors.DictCursor)
-			cursor.execute("SELECT id, username FROM user WHERE id=%s", payload['identity'])
-			row = cursor.fetchone()
-			
-			if row:
-				return (row['id'], row['username'])
-			else:
-				return None
-		except Exception as e:
-			print(e)
-		finally:
-			cursor.close() 
-			conn.close()
-	else:
-		return None
-
-jwt = JWT(app, authenticate, identity)
-"""
 
 ########## JSON-RPC REQUESTS ##########
 # This was an experiment and will not be used
@@ -862,8 +866,8 @@ def debug_request( request ):
 	print("REMOTE_ADDR:")
 	print(request.remote_addr)
 
-
-if __name__ == "__main__":
+def main():	
+	global DB, config, log, JWT_Secret_Token, timer
 
 	#	SET UP RPC METHOD CALLS
 	# This was an experiment and will not be used
@@ -874,7 +878,7 @@ if __name__ == "__main__":
 
 	#	CONFIG FILE
 
-	print( "Opening configuration" )
+	print( "- Opening configuration" )
 	config = configparser.ConfigParser()
 	config.read( CONFIGFILE )
 
@@ -922,15 +926,15 @@ if __name__ == "__main__":
 		DB.initialise( db )
 
 	#	ADMINISTRATOR PASSWORD RESET
-	print( "ARGUMENTS:" + str(len(sys.argv) ) )
+	#print( "ARGUMENTS:" + str(len(sys.argv) ) )
 	if len(sys.argv)==4 and sys.argv[1]=="--reset":
-		Write( "Updating administrator account", "WARNING" )
+		Write( "- Updating administrator account", "WARNING" )
 		username=sys.argv[2]
 		password=sys.argv[3]
 		password_salt =generate_salt()
 		password_hash = generate_hash( password, password_salt )
 		id = DB.addUpdateUser( username, password_hash, password_salt )
-		Write( "Updated '"+username+"' with id="+str(id), "WARNING" )
+		Write( "- Updated '"+username+"' with id="+str(id), "WARNING" )
 		sys.exit(0)
 
 	#	SET UP JWT TOKEN
@@ -971,10 +975,21 @@ if __name__ == "__main__":
 	
 	#	RUN SERVER
 	port  = config.get( APPNAME, 'port', fallback="4010" )
-	debug = config.get( APPNAME, 'port', fallback="" ) != ""
-	if debug: print( "DEBUG MODE" )
+	debug = config.get( APPNAME, 'debug', fallback="" ) != ""
+	if debug: print( "- DEBUG MODE" )
 	app.run( host="0.0.0.0", port=port, debug=debug )
 
 	#	CLEAN UP
 
-	timer.cancel()
+	if timer: timer.cancel()
+
+if __name__ == "__main__":
+
+	try:
+		main()
+	except KeyboardInterrupt:
+		print( "- User aborted with ctrl-c" )
+		if timer: timer.cancel()
+		sys.exit()
+	except Exception as e:
+		print(str(e))

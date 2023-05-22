@@ -1,7 +1,7 @@
 
 # DATABASE SINGLETON
 
-import json, os
+import json, os, sys
 
 #import mysql.connector
 
@@ -49,24 +49,24 @@ def initialise( filename ):
 	global Database
 	db_filename = filename
 	if not os.path.isfile(filename):
-		print( "Datafile does not exist - Creating empty one " )
+		print( "- Creating new datafile" )
 		#Database = {}
 		save()
 	try:
-		print( "Loading datafile" )
+		print( "- Loading datafile" )
 		with open( filename ) as f:
 			Database = json.load(f)
 		#print( json.dumps( Database, indent=2))
 	except Exception as e:
 		print( "Invalid datafile: '"+filename+"'\n "+str(e) )	
 
-def getUserByEmail( email ):
+def getUserByUsername( username ):
 	if "auth" not in Database: return None
 	if "records" not in Database["auth"]: return None
-	if "index.email" not in Database["auth"]: return None
-	if email not in Database["auth"]["index.email"]: return None
+	if "index.username" not in Database["auth"]: return None
+	if username not in Database["auth"]["index.username"]: return None
 
-	userid = Database["auth"]["index.email"][email]
+	userid = Database["auth"]["index.username"][username]
 	return Database["auth"]["records"][str(userid)]
 
 def getUserById( userid ):
@@ -82,10 +82,28 @@ def getNodes():
 	
 	return Database["nodes"]["records"]
 
+# RETURNS: JSON
 def getNodeById( id ):
-	if "nodes" not in Database: return {}
-	if id not in Database["nodes"]["records"]: return {}
-	return Database["nodes"]["records"][str(id)]
+	try:
+		return Database["nodes"]["records"][str(id)]
+	except Exception as e:
+		#print("- failed to get node "+str(id))
+		#sys.stdout.flush()
+		return None
+	#id = str(id)
+	#print("- getting id "+str(id))
+	#sys.stdout.flush()
+	#if "nodes" not in Database: return {}
+	#print("a")
+	#sys.stdout.flush()
+	#if "records" not in Database["nodes"]: return {}
+	#print("b")
+	#print( json.dumps( Database["nodes"]["records"]["1"] ))
+	#sys.stdout.flush()
+	#if id not in Database["nodes"]["records"]: return {}
+	#print("C")
+	#sys.stdout.flush()
+	#return Database["nodes"]["records"][id]
 
 def insertNode( hostname, ipaddr ):
 	global Database
@@ -134,12 +152,12 @@ def addUpdateUser( username, hash, salt ):
 	if "auth" not in Database: Database["auth"]={}
 	if "counter" not in Database["auth"]: Database["auth"]["counter"] = 0
 	if "records" not in Database["auth"]: Database["auth"]["records"] = {}
-	if "index.email" not in Database["auth"]: Database["auth"]["index.email"] = {}
+	if "index.username" not in Database["auth"]: Database["auth"]["index.username"] = {}
 
 	userid=0
 
-	if username in Database["auth"]["index.email"]:
-		userid = Database["auth"]["index.email"][username]
+	if username in Database["auth"]["index.username"]:
+		userid = Database["auth"]["index.username"][username]
 		print( "Updating "+username+" ["+str(userid)+"]")
 		## UPDATE USER
 		Database["auth"]["records"][str(userid)]["password_hash"] = hash
@@ -153,11 +171,22 @@ def addUpdateUser( username, hash, salt ):
 	
 		Database["auth"]["records"][userid] = {
 			"id":userid,
-			"email":username,
+			"username":username,
 			"password_hash":hash,
 			"password_salt":salt
 		}
-		Database["auth"]["index.email"][username] = userid
+		Database["auth"]["index.username"][username] = userid
 
 	save()
 	return userid
+
+def getRecordById( table, id, fields ):
+	try:
+		result = {}
+		for field in fields:
+			result[field] = Database[table]["records"][str(id)][field]
+		return result
+	except Exception as e:
+		print( str(e) )
+	finally:
+		pass

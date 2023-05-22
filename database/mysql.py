@@ -1,7 +1,7 @@
 
 # DATABASE SINGLETON
 
-import mysql.connector
+import mysql.connector, json, os, sys, threading
 
 DBHOST = "localhost"	#127.0.0.1
 DBUSER = "Netadmin"
@@ -9,6 +9,7 @@ DBPASS = "Clytemnestra37_"
 DBNAME = "netadmin"
 
 db = None
+dblock = threading.Lock()
 
 class Database( object ):
 
@@ -55,7 +56,7 @@ def db_read(query, params=None):
 			content.append(entry)
 		return content
 	except Exception as e:
-		Write( "db_read() FAILED\nEXCEPTION: "+str(e)+"\n  "+str(query).replace("\n","\n  ")+"\n+PARAMS: "+str(params), "ERROR" )
+		print( "db_read() FAILED\nEXCEPTION: "+str(e)+"\n  "+str(query).replace("\n","\n  ")+"\n+PARAMS: "+str(params), "ERROR" )
 		
 def db_write(query, params):
 	cursor = db.cursor()
@@ -64,12 +65,12 @@ def db_write(query, params):
 		db.commit()
 		cursor.close()
 		return True
-	except MySQLdb._exceptions.IntegrityError:
-		Write( "db_write() FAILED\n  "+str(query).replace("\n","\n  ")+"\n+PARAMS: "+str(params), "ERROR" )
-		cursor.close()
-		return False
+	#except MySQLdb._exceptions.IntegrityError:
+	#	print( "db_write() FAILED\n  "+str(query).replace("\n","\n  ")+"\n+PARAMS: "+str(params), "ERROR" )
+	#	cursor.close()
+	#	return False
 	except Exception as e:
-		Write( "db_write() FAILED\nEXCEPTION: "+str(e)+"\n  "+str(query).replace("\n","\n  ")+"\n+PARAMS: "+str(params), "ERROR" )
+		print( "db_write() FAILED\nEXCEPTION: "+str(e)+"\n  "+str(query).replace("\n","\n  ")+"\n+PARAMS: "+str(params), "ERROR" )
 		cursor.close()
 		return False
 
@@ -87,30 +88,49 @@ def initialise( config ):
 		password = DBPASS,
 		database = DBNAME
 		)
-		Write( "Database open" )
+		print( "Database open" )
 	except Exception as e:
-		Write( "Failed to connect to database: "+str(e), "ERROR" )
+		print( "Failed to connect to database: "+str(e), "ERROR" )
 		print( "Failed to connect to database: "+str(e) )
 		sys.exit()	
-	dblock = threading.Lock()
+	#dblock = threading.Lock()
 
 
 def getUserByEmail( email ):
 	#return db_read( """SELECT * FROM auth WHERE email=%s""", (email,))
+	#SQL = "SELECT id,name,level FROM auth WHERE email=%s;"
 	SQL = "SELECT * FROM auth WHERE email=%s;"
 	try:
-		cursor = db.cursor( dictionary=True, buffered=True )
+		cursor = db.cursor( dictionary=True )
+		#cursor = db.cursor( dictionary=True, buffered=True )
 		cursor.execute( SQL, (email,) )
-		entries = cursor.fetchall()
-		cursor.close()
-		return entries[0]
-		#content = []
-		#for entry in entries:
-		#	content.append(entry)
-		#return content
+		row = cursor.fetchone()
+		#rows = cursor.fetchall()
+		#cursor.close()
+		#return rows[0]
+		#if not row: return None
+		return row
 	except Exception as e:
-		Write(str(e))
-		return None
+		raise(e)
+	finally:
+		cursor.close()
+		#db.close()
+
+def getUserById( id ):
+	#conn = None;
+	cursor = None;
+	SQL = "SELECT id, username FROM user WHERE id=%s"
+	try:
+		#conn = mysql.connect()
+		cursor = db.cursor( dictionary=True )
+		#cursor = db.cursor( pymysql.cursors.DictCursor )
+		cursor.execute( SQL, (id, ) )
+		row = cursor.fetchone()
+	except Exception as e:
+		print(e)
+	finally:
+		cursor.close() 
+		#db.close()
 
 def getNodes():
 	
@@ -163,17 +183,17 @@ def insertNode( hostname, ipaddr ):
 	try:
 		cursor.execute( SQL, ( hostname, ipaddr) )
 		db.commit()
-		id = cursor.lastrowid
-		cursor.close()
-		return id
+		#id = cursor.lastrowid
+		return cursor.lastrowid
 	#except MySQLdb._exceptions.IntegrityError:
 	#	Write( "FAILED\n  "+str(SQL), "ERROR" )
 	#	cursor.close()
 	#	return None
 	except Exception as e:
-		Write( "EXCEPTION: "+str(e)+"\n  "+str(SQL), "ERROR" )
+		print( "EXCEPTION: "+str(e)+"\n  "+str(SQL), "ERROR" )
+		raise e
+	finally:
 		cursor.close()
-		return None
 	
 	return id
 
@@ -183,10 +203,10 @@ def addUpdateUser( username, hash, salt ):
 	userid=0
 
 	# Get existing record (If there is one)
-	SQL = """SELECT * FROM auth WHERE email=%s"""
+	SQL = """SELECT * FROM auth WHERE username=%s"""
 	try:
 		cursor = db.cursor( dictionary=True, buffered=True )
-		cursor.execute( SQL, (email,) )
+		cursor.execute( SQL, (username,) )
 		entries = cursor.fetchall()
 		cursor.close()
 		if len(entries) == 1:
@@ -224,3 +244,29 @@ def addUpdateUser( username, hash, salt ):
 	dblock.release()
 
 	return userid
+
+def getRecordById( table, id, fields ):
+	SQL = """
+		SELECT %s
+		FROM %s
+		WHERE id=%s;
+	"""
+	cursor = None
+	dblock = None
+	try:
+		dblock.acquire()
+		cursor = db.cursor( dictionary=True, buffered=True )
+		list = ",".join(fields)
+		cursor.execute( SQL, (list,table,id) )
+		records = cursor.fetchone()
+		#count = cursor.rowcount
+		db.commit()
+		return records
+	except Exception as e:
+		print( str(e) )
+	finally:
+		cursor.close()
+		dblock.release()
+
+	return None
+	#
