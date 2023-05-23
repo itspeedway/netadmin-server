@@ -1,2 +1,21 @@
 #!/bin/bash
+
+# GET CURRENT BUILD
+version=`cat version.txt`
+IFS='.' read verhi verlo build <<< "$version"
+[ $verhi == "" ] && verhi=0
+[ $verlo == "" ] && verlo=0
+[ $build == "" ] && build=0
+
+# INCREMENT BUILD VERSION
+build=$(( $build + 1 ))
+version=$verhi.$verlo.$build
+
+# UPDATE BUILD
+rm v*.ver
+echo $version>version.txt
+echo v${version}.ver:
+echo v$version>v$version.ver
+
+# TEST-RUN
 ./venv/bin/python3 netadmin_api_server.py $@

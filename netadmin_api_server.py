@@ -671,12 +671,8 @@ def POST_auth():
 # Get device list
 @app.route( "/netadmin/nodes", methods=["OPTIONS"] )
 def OPTIONS_nodes(): # CORS
-	Write( "/netadmin/nodes, OPTIONS" )
-	#print( "REQUEST: /api/v1/devices,OPTIONS" )
-	
-	debug_request( request )
-	
-	Write( "OPTIONS - nodes" )
+	#Write( "/netadmin/nodes, OPTIONS" )
+	#debug_request( request )
 	return render_CORS_preflight( request, "GET,POST" )
 
 # Get device list
@@ -684,25 +680,12 @@ def OPTIONS_nodes(): # CORS
 @jwt_protected
 def GET_Nodes( user ):		# Argument is authenticated use provided by decorator
 	Write( "/netadmin/nodes, GET" )
-	#print( "REQUEST: /api/v1/devices,GET" )
-
-	debug_request( request )
+	#debug_request( request )
 
 	list = DB.getNodes()
-	if not list: return {}
+	if not list: list = {}
 
-	Write( json.dumps( list ) )
- 
-#
-#	data = {}
-#	# {"id": 41, "hostname": "LBB_BRO_LIB_RT01", "status": 0}
-#	for device in records:
-#		print( str(device) )
-#		data[ device[ "hostname" ] ] = { "id":device[ "id" ], "type":device["type"], "ipaddress":device["ipaddress"], "status":device[ "status" ], "location":device[ "location" ] }
-#	
-#	#print( str(data) )
-#	
-#	Write( "GET - devices" )
+	#Write( json.dumps( list ) )
 	return render_CORS_preflight( request, "GET", list )
 
 # Add device
@@ -730,105 +713,105 @@ def POST_nodes():
 		# Registration Failed
 		return Response(jsonify( {"error":"Add device failed"} ), status=409)
 
-# Get a specific device
+# Get a specific node
 @app.get( "/netadmin/nodes/<int:id>" )
 @jwt_protected
-def GET_Node( id ):
+def GET_Node( user, id ):
 	Write( "/netadmin/nodes/"+str(id)+", GET" )
 	data = DB.getNodeById( id )
 	print( str(data) )
 	return Response( str(data), status = 200 )
 
 # Get all devices at a specific location
-@app.get( "/api/devices/at/<location>" )
+#@app.get( "/api/devices/at/<location>" )
+##@jwt_protected
+#def get_devices_in(location):
+#	Write( "GET - devices at location: "+location )
+#	SQL = """
+#		SELECT id,hostname,status
+#		FROM devices
+#		WHERE location=%s
+#		ORDER BY hostname;
+#	"""
+#	#
+#	dblock.acquire()
+#	#
+#	cursor = db.cursor( dictionary=True, buffered=True )
+#	cursor.execute( SQL, (location,) )
+#	records = cursor.fetchall()
+#	count = cursor.rowcount
+#	db.commit()
+#	cursor.close()
+#	#
+#	dblock.release()
+#	#
+#	print( records )
+#	return( json.dumps(records) )
+#
+## Get all devices
+#@app.get( "/api/devices" )
 #@jwt_protected
-def get_devices_in(location):
-	Write( "GET - devices at location: "+location )
-	SQL = """
-		SELECT id,hostname,status
-		FROM devices
-		WHERE location=%s
-		ORDER BY hostname;
-	"""
-	#
-	dblock.acquire()
-	#
-	cursor = db.cursor( dictionary=True, buffered=True )
-	cursor.execute( SQL, (location,) )
-	records = cursor.fetchall()
-	count = cursor.rowcount
-	db.commit()
-	cursor.close()
-	#
-	dblock.release()
-	#
-	print( records )
-	return( json.dumps(records) )
-
-# Get all devices
-@app.get( "/api/devices" )
-@jwt_protected
-def get_devices():
-	Write( "GET - devices" )
-	SQL = """
-		SELECT id,hostname
-		FROM devices
-		ORDER BY hostname;
-	"""
-	#
-	dblock.acquire()
-	#
-	cursor = db.cursor( dictionary=True, buffered=True )
-	cursor.execute( SQL )
-	records = cursor.fetchall()
-	count = cursor.rowcount
-	db.commit()
-	cursor.close()
-	#
-	dblock.release()
-	#
-	print( records )
-	return( json.dumps(records) )
+#def get_devices():
+#	Write( "GET - devices" )
+#	SQL = """
+#		SELECT id,hostname
+#		FROM devices
+#		ORDER BY hostname;
+#	"""
+#	#
+#	dblock.acquire()
+#	#
+#	cursor = db.cursor( dictionary=True, buffered=True )
+#	cursor.execute( SQL )
+#	records = cursor.fetchall()
+#	count = cursor.rowcount
+#	db.commit()
+#	cursor.close()
+#	#
+#	dblock.release()
+#	#
+#	print( records )
+#	return( json.dumps(records) )
 	
 ########################################
 ########## PLACES ######################
 	
-@app.get( "/api/locations" )
-#@jwt_protected
-def get_locations():
-	Write( "GET - locations" )
-	SQL = """
-		SELECT id,name
-		FROM locations
-		ORDER BY name;
-	"""
-	#
-	dblock.acquire()
-	#
-	cursor = db.cursor( dictionary=True, buffered=True )
-	cursor.execute( SQL )
-	records = cursor.fetchall()
-	count = cursor.rowcount
-	db.commit()
-	cursor.close()
-	#
-	dblock.release()
-	#
-	print( records )
-	return( json.dumps(records) )
-	
-@app.post( "/api/devices" )
-#@jwt_protected
-def add_device():
-	if request.is_json:
-		device = request.get_json()
-		
-		return device, 201
-	return {"error": "Invalid JSON received"}, 415
+#	return {"error": "Invalid JSON received"}, 415
+#@app.get( "/api/locations" )
+##@jwt_protected
+#def get_locations():
+#	Write( "GET - locations" )
+#	SQL = """
+#		SELECT id,name
+#		FROM locations
+#		ORDER BY name;
+#	"""
+#	#
+#	dblock.acquire()
+#	#
+#	cursor = db.cursor( dictionary=True, buffered=True )
+#	cursor.execute( SQL )
+#	records = cursor.fetchall()
+#	count = cursor.rowcount
+#	db.commit()
+#	cursor.close()
+#	#
+#	dblock.release()
+#	#
+#	print( records )
+#	return( json.dumps(records) )
+#	
+#@app.post( "/api/devices" )
+##@jwt_protected
+#def add_device():
+#	if request.is_json:
+#		device = request.get_json()
+#		
+#		return device, 201
 
 @app.post( "/api/search" )
-#@jwt_protected
-def search():
+@jwt_protected
+def search( user ):
 	if not request.is_json:
 		return {"error": "Invalid JSON received"}, 415
 
@@ -837,15 +820,6 @@ def search():
 	
 	return {}, 201
 		
-
-
-
-########## JSON-RPC REQUESTS ##########
-# This was an experiment and will not be used
-#def Request_Auth():
-#	Write( "Request_Auth() Called" )
-#	pass
-
 ########################################
 
 def debug_request( request ):
@@ -868,13 +842,6 @@ def debug_request( request ):
 
 def main():	
 	global DB, config, log, JWT_Secret_Token, timer
-
-	#	SET UP RPC METHOD CALLS
-	# This was an experiment and will not be used
-
-	#JSONRPC_Requests = {
-	#	"auth":Request_Auth
-	#}
 
 	#	CONFIG FILE
 
@@ -985,6 +952,18 @@ def main():
 
 if __name__ == "__main__":
 
+	# Get version
+	version=0
+	try:
+		with open('version.txt', 'r') as file:
+			version = file.read().rstrip()
+	except:
+		pass
+	print( "NETADMIN API SERVER" )
+	print( "Version "+str(version) )
+	print( "https://github.com/itspeedway/netadmin-server" )
+	print()
+	
 	try:
 		main()
 	except KeyboardInterrupt:

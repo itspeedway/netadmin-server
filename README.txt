@@ -17,27 +17,30 @@ Create folder:
 Install Virtual Environment:
 
 	cd /d D:\NetadminAPI
-	python -m venv venv
-	python -m pip install --upgrade pip
+	python3 -m venv venv
+	python3 -m pip install --upgrade pip
 	
 Install dependencies:
 	(Requires internet access)
 
 	cd /d D:\NetadminAPI
-	venv\scripts\activate
-	python -m pip install --upgrade pip
-	python -m pip install --upgrade mysql-connector-python
-	python -m pip install --upgrade flask
-    python -m pip install --upgrade flask_restful
-    python -m pip install --upgrade flask_jwt
+	WINDOWS:
+    venv\scripts\activate
+    LINX:
+    . venv/bin/activate
+	python3 -m pip install --upgrade pip
+	python3 -m pip install --upgrade mysql-connector-python
+	python3 -m pip install --upgrade flask
+    !! python3 -m pip install --upgrade flask_restful
+    python3 -m pip install --upgrade flask_jwt
 
-    python3 -m pip uninstall PyJWT
 
     Depreciated
 	!! python -m pip install --upgrade requests
 	!! python -m pip install --upgrade websocket
 	!! python -m pip install --upgrade websocket-client
 	!! python -m pip install --upgrade flask-cors	
+    !! python3 -m pip uninstall PyJWT
 
 The first time you run this script you will be asked to save the server fingerprint; please say yes.
 
