@@ -48,6 +48,7 @@ DB=None
 JWT_Secret_Token=None
 log=None
 timer=None
+version="0.0.0.DEV"
 
 # This was an experiment and will not be used
 #JSONRPC_Requests = {}
@@ -474,9 +475,18 @@ def not_found(e):
 def GET_Capabilities():
 	Write( "GET - /netadmin (Capabilities)" )
 	data = {
+		"server":{
+			"version":version
+		},
 		"capabilities":{
-			"auth":{
-				"url":"netadmin/auth"
+			"login":{
+				"url":"netadmin/login"
+			},
+			"logout":{
+				"url":"netadmin/logout"
+			},
+			"nodes":{
+				"url":"netadmin/nodes"
 			}
 		}
 	}
@@ -484,18 +494,14 @@ def GET_Capabilities():
 
 #	NETADMIN AUTHENTICATION
 
-@app.route( "/netadmin/auth", methods=["OPTIONS"] )
+@app.route( "/netadmin/login", methods=["OPTIONS"] )
 def OPTIONS_auth():	# CORS
-	Write( "OPTIONS - /auth" )
-	#log.info( "OPTIONS - /auth" )
+	Write( "OPTIONS - /login" )
 	return render_CORS_preflight( request, "POST" )
 
-@app.post( "/netadmin/auth" )
+@app.post( "/netadmin/login" )
 def POST_auth():
-	Write( "POST - /auth" )
-	#log.info( "POST - /auth" )
-
-	#auth = request.form		# Turn form into a dictionary
+	Write( "POST - /login" )
 	
 	if not request.json:
 		return make_response( "Unexpected data format", 401, {
@@ -953,17 +959,24 @@ def main():
 if __name__ == "__main__":
 
 	# Get version
-	version=0
+	#version=0
 	try:
 		with open('version.txt', 'r') as file:
 			version = file.read().rstrip()
 	except:
 		pass
-	print( "NETADMIN API SERVER" )
-	print( "Version "+str(version) )
-	print( "https://github.com/itspeedway/netadmin-server" )
-	print()
-	
+	print( "NETADMIN API SERVER\nVersion "+str(version)+"\n" )
+
+	ver=version.split(".")
+	if ver[3]=="DEV":
+		print( "## WARNING: DEVELOPMENT VERSION\n")
+	elif ver[3]=="A":
+		print( "## WARNING: ALPHA VERSION\n")
+	elif ver[3]=="B":
+		print( "## WARNING: BETA VERSION\n")
+
+	print( "https://github.com/itspeedway/netadmin-server\n" )
+
 	try:
 		main()
 	except KeyboardInterrupt:

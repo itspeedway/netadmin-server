@@ -6,7 +6,7 @@
 filename=token.jwt
 key=token
 
-curl -s -H 'Content-Type: application/json' -d '{"username":"Scaremonger","password":"Password123"}' -X POST "http://127.0.0.1:4010/netadmin/auth" > $filename
+curl -s -H 'Content-Type: application/json' -d '{"username":"Scaremonger","password":"Password123"}' -X POST "http://127.0.0.1:4010/netadmin/login" > $filename
 
 sed -i 's|"||g' $filename
 sed -i 's|\s||g' $filename

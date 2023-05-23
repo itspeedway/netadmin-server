@@ -1,0 +1,17 @@
+
+
+VERSION NUMBER
+
+<major>.<minor>.<lifecycle>.<build>
+
+    major.minor - Product version number
+    lifecycle   
+
+LIFECYCLE
+
+Pre-Alpha   DEV     Product is in build/system testing
+Alpha       A       Product is in development or not feature complete
+Beta        B       Product is in testing and feture complete
+Production  RC      Product is in release
+
+
