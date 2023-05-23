@@ -14,8 +14,8 @@ version=$verhi.$verlo.$build.$release
 
 # UPDATE BUILD
 rm v*.ver
-echo $version>version.txt
-echo v$version>v$version.ver
+echo $verhi.$verlo.$build.$release>version.txt
+echo $verhi.$verlo.$build-$release>v$verhi.$verlo.$build-$release.ver
 
 # TEST-RUN
 ./venv/bin/python3 netadmin_api_server.py $@

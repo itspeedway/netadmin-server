@@ -965,9 +965,10 @@ if __name__ == "__main__":
 			version = file.read().rstrip()
 	except:
 		pass
+	ver=version.split(".")
+	version="%s.%s.%s-%s" % (ver[0],ver[1],ver[2],ver[3])
 	print( "NETADMIN API SERVER\nVersion "+str(version)+"\n" )
 
-	ver=version.split(".")
 	if ver[3]=="dev":
 		print( "## WARNING: DEVELOPMENT VERSION\n")
 	elif ver[3]=="alpha":
