@@ -6,7 +6,7 @@ IFS='.' read verhi verlo build release <<< "$version"
 [ $verhi == "" ] && verhi=0
 [ $verlo == "" ] && verlo=0
 [ $build == "" ] && build=0
-[ $release == "" ] && release=DEV
+[ $release == "" ] && release=dev
 
 # INCREMENT BUILD VERSION
 [ $# -eq 1 ] && [ $1 = "-i" ] && build=$(( $build + 1 ))

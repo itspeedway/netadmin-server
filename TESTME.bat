@@ -11,7 +11,7 @@ for /f "delims=" %%a in (version.txt) do (
 if "%verhi%"=="" set verhi=0
 if "%verlo%"=="" set verlo=0
 if "%build%"=="" set build=0
-if "%release%"=="" set release=DEV
+if "%release%"=="" set release=dev
 
 REM # INCREMENT BUILD VERSION
 if "%1"=="-i" set /i build=build+1

@@ -968,11 +968,11 @@ if __name__ == "__main__":
 	print( "NETADMIN API SERVER\nVersion "+str(version)+"\n" )
 
 	ver=version.split(".")
-	if ver[3]=="DEV":
+	if ver[3]=="dev":
 		print( "## WARNING: DEVELOPMENT VERSION\n")
-	elif ver[3]=="A":
+	elif ver[3]=="alpha":
 		print( "## WARNING: ALPHA VERSION\n")
-	elif ver[3]=="B":
+	elif ver[3]=="beta":
 		print( "## WARNING: BETA VERSION\n")
 
 	print( "https://github.com/itspeedway/netadmin-server\n" )
